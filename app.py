@@ -75,23 +75,47 @@ elif opcion == "🗺️ Mapa Táctico":
     * 🟢 Verde: Ruta Segura / Verificada
     """)
 
-# --- MÓDULO 3: ENVIAR REPORTE ---
+# --- MÓDULO 3: ENVIAR REPORTE (VISUAL / TÁCTICO) ---
 elif opcion == "📝 Enviar Reporte":
-    st.title("📝 NUEVO REPORTE DE INTEL")
-    st.write("Tu información ayuda a otros viajeros. Gana puntos de reputación.")
+    st.title("⚡ REPORTE RÁPIDO")
+    st.write("Selecciona los iconos. No escribas.")
     
-    with st.form("reporte_form"):
-        tipo = st.selectbox("¿Qué quieres reportar?", ["🚧 Bloqueo/Marcha", "💱 Tipo de Cambio", "🚕 Precio Taxi", "🛡️ Seguridad"])
-        ubicacion = st.text_input("Ubicación (Ej: Plaza Murillo)")
-        detalle = st.text_area("Detalles adicionales")
-        foto = st.file_uploader("Evidencia (Foto)", type=["jpg", "png"])
+    with st.form("reporte_tactico"):
+        # 1. ¿QUÉ ESTÁ PASANDO? (Selectores visuales)
+        st.markdown("### 1. ¿Qué ves?")
+        categoria = st.radio(
+            "Selecciona categoría:",
+            ["🚧 Bloqueo", "🛡️ Seguridad", "💱 Tipo de Cambio", "🥳 Fiesta/Evento"],
+            horizontal=True
+        )
         
-        submitted = st.form_submit_button("ENVIAR A LA RED")
+        st.markdown("---")
+        
+        # 2. NIVEL DE INTENSIDAD (Slider visual)
+        if categoria == "🚧 Bloqueo":
+            nivel = st.select_slider("¿Qué tan grave es?", options=["Transitable", "Tráfico Lento", "Colapsado", "Guerra Civil"])
+        elif categoria == "💱 Tipo de Cambio":
+            nivel = st.slider("¿A cuánto está el Dólar (BOB)?", 6.96, 12.00, 8.50)
+        else:
+            nivel = st.slider("Nivel de Interés", 1, 10, 5)
+
+        st.markdown("---")
+
+        # 3. UBICACIÓN (Botón simulado)
+        col1, col2 = st.columns([1,3])
+        with col1:
+            st.write("📍")
+        with col2:
+            usar_gps = st.checkbox("Usar mi ubicación GPS actual", value=True)
+        
+        # Botón de pánico grande
+        submitted = st.form_submit_button("🚀 LANZAR ALERTA", use_container_width=True)
         
         if submitted:
-            st.balloons() # Efecto de celebración
-            st.success("✅ ¡Reporte enviado! Tus datos están siendo verificados en la Blockchain (Simulado).")
-
+            st.balloons()
+            st.success(f"✅ REPORTE ENVIADO: {categoria} | Nivel: {nivel}")
+            if usar_gps:
+                st.caption("📍 Ubicación geolocalizada: Lat -16.500 / Lon -68.150 (Simulado)")
 # --- MÓDULO 4: PERFIL ---
 elif opcion == "🎒 Mi Perfil":
     st.title("👤 EXPEDIENTE: SÉBASTIEN")
