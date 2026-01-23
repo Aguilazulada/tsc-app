@@ -75,47 +75,73 @@ elif opcion == "🗺️ Mapa Táctico":
     * 🟢 Verde: Ruta Segura / Verificada
     """)
 
-# --- MÓDULO 3: ENVIAR REPORTE (VISUAL / TÁCTICO) ---
+# --- MÓDULO 3: ENVIAR REPORTE (INTELIGENTE) ---
 elif opcion == "📝 Enviar Reporte":
-    st.title("⚡ REPORTE RÁPIDO")
-    st.write("Selecciona los iconos. No escribas.")
+    st.title("⚡ REPORTE TÁCTICO")
     
-    with st.form("reporte_tactico"):
-        # 1. ¿QUÉ ESTÁ PASANDO? (Selectores visuales)
-        st.markdown("### 1. ¿Qué ves?")
-        categoria = st.radio(
-            "Selecciona categoría:",
-            ["🚧 Bloqueo", "🛡️ Seguridad", "💱 Tipo de Cambio", "🥳 Fiesta/Evento"],
-            horizontal=True
-        )
+    # 1. SELECCIÓN DE CATEGORÍA
+    st.markdown("### 1. ¿Qué quieres reportar?")
+    categoria = st.radio(
+        "Selecciona una opción:",
+        ["🚧 Bloqueo / Tráfico", "💱 Tipo de Cambio", "🛡️ Seguridad / Otros"],
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+    
+    st.markdown("---")
+    
+    with st.form("reporte_form"):
+        # LÓGICA CONDICIONAL: Muestra cosas distintas según la categoría
         
-        st.markdown("---")
-        
-        # 2. NIVEL DE INTENSIDAD (Slider visual)
-        if categoria == "🚧 Bloqueo":
-            nivel = st.select_slider("¿Qué tan grave es?", options=["Transitable", "Tráfico Lento", "Colapsado", "Guerra Civil"])
-        elif categoria == "💱 Tipo de Cambio":
-            nivel = st.slider("¿A cuánto está el Dólar (BOB)?", 6.96, 12.00, 8.50)
+        # CASO A: SI ES DINERO
+        if categoria == "💱 Tipo de Cambio":
+            st.info("📊 **Referencia de Mercado (Promedio Hoy):**")
+            
+            # Tabla de referencia visual
+            col_ref1, col_ref2 = st.columns(2)
+            col_ref1.metric("Dólar (USD)", "8.45 Bs", "Ref")
+            col_ref2.metric("Euro (EUR)", "9.10 Bs", "Ref")
+            
+            st.markdown("#### Tu Reporte:")
+            col1, col2 = st.columns(2)
+            with col1:
+                moneda = st.selectbox("Moneda", ["🇺🇸 Dólar (USD)", "🇪🇺 Euro (EUR)"])
+            with col2:
+                operacion = st.selectbox("Acción", ["Compra (Busco)", "Venta (Tengo)"])
+            
+            # Input numérico preciso (mejor que slider para dinero)
+            precio = st.number_input("Precio encontrado (Bs)", min_value=6.00, max_value=15.00, value=8.45, step=0.05)
+            nivel_detalle = f"{moneda} - {operacion} a {precio} Bs"
+
+        # CASO B: SI ES BLOQUEO (Mantenemos la agilidad)
+        elif categoria == "🚧 Bloqueo / Tráfico":
+            st.warning("⚠️ Reportando incidente en vía pública")
+            nivel = st.select_slider(
+                "¿Qué tan grave es?", 
+                options=["🟢 Transitable", "🟡 Tráfico Lento", "🟠 Bloqueo Parcial", "🔴 Bloqueo Total", "⚫ Guerra Civil"]
+            )
+            nivel_detalle = f"Estado: {nivel}"
+
+        # CASO C: OTROS
         else:
-            nivel = st.slider("Nivel de Interés", 1, 10, 5)
+            nivel_detalle = st.text_input("Describe brevemente (Ej: Robos en la zona, Fiesta...)")
 
         st.markdown("---")
 
-        # 3. UBICACIÓN (Botón simulado)
-        col1, col2 = st.columns([1,3])
-        with col1:
-            st.write("📍")
-        with col2:
-            usar_gps = st.checkbox("Usar mi ubicación GPS actual", value=True)
+        # UBICACIÓN Y ENVÍO
+        col_gps1, col_gps2 = st.columns([1,3])
+        with col_gps1:
+            st.write("📍 Ubicación:")
+        with col_gps2:
+            st.checkbox("Usar mi GPS actual", value=True)
         
-        # Botón de pánico grande
-        submitted = st.form_submit_button("🚀 LANZAR ALERTA", use_container_width=True)
+        submitted = st.form_submit_button("🚀 ENVIAR REPORTE", use_container_width=True)
         
         if submitted:
             st.balloons()
-            st.success(f"✅ REPORTE ENVIADO: {categoria} | Nivel: {nivel}")
-            if usar_gps:
-                st.caption("📍 Ubicación geolocalizada: Lat -16.500 / Lon -68.150 (Simulado)")
+            st.success(f"✅ DATO GUARDADO: {categoria}")
+            st.caption(f"Detalle: {nivel_detalle}")
+
 # --- MÓDULO 4: PERFIL ---
 elif opcion == "🎒 Mi Perfil":
     st.title("👤 EXPEDIENTE: SÉBASTIEN")
