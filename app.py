@@ -5,94 +5,106 @@ import numpy as np
 # --- CONFIGURACIÓN ---
 st.set_page_config(page_title="TSC | Andean Survival", page_icon="🏔️", layout="centered")
 
-# Estilos CSS (Tipografía más grande para móviles)
+# Estilos CSS (Recuperamos tu estilo original)
 st.markdown("""
     <style>
     .stApp { background-color: #0E1117; color: #FAFAFA; }
-    div[data-testid="stMetricValue"] { font-size: 24px; }
+    .stMetric { background-color: #262730; padding: 10px; border-radius: 5px; border: 1px solid #4F4F4F; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- BASE DE DATOS DE PRUEBA (CON TUS EJEMPLOS) ---
+# --- BASE DE DATOS (CON LA NUEVA COLUMNA DE DESCRIPCIÓN) ---
 data_reportes = pd.DataFrame({
     'lat': [-16.4955, -16.5000, -16.5123, -16.4820],
     'lon': [-68.1335, -68.1193, -68.1250, -68.1500],
     'categoria': ['💱 Cambio', '🟢 Seguro', '🚧 Bloqueo', '💱 Cambio'],
     'titulo': ['Casa El Sol', 'Plaza Murillo', 'Marcha Centro', 'Túnel San Francisco'],
-    'precio_dolar': [8.45, None, None, 8.55], # 8.55 es el mejor precio
+    'precio_dolar': [8.45, None, None, 8.55],
     'descripcion': [
-        'Local formal, piden carnet. Seguro pero fila larga.',
-        'Todo tranquilo, muchos policías.',
-        'Mineros bloqueando ingreso al Prado.',
-        'Señora de lentes y sombrero, sentada en una silla blanca. Preguntar bajito.'
+        'Local formal con letrero amarillo.',
+        'Policía turística presente.',
+        'Mineros en la vía.',
+        'Señora de lentes y sombrero, silla blanca. Preguntar bajito.'
     ],
-    # El tamaño del punto en el mapa dependerá del precio (más grande = mejor cambio)
-    'size': [50, 20, 100, 200], 
-    'color': ['#00FF00', '#0000FF', '#FF0000', '#00FF00']
+    'color': ['#00FF00', '#0000FF', '#FF0000', '#00FF00'],
+    'size': [50, 20, 100, 200] # El tamaño indica la calidad del dato
 })
 
 # --- BARRA LATERAL ---
 st.sidebar.title("🏔️ TSC COMMAND")
-opcion = st.sidebar.radio("Menú:", ["🗺️ Mapa & Intel", "📝 Enviar Reporte"])
+opcion = st.sidebar.radio("Navegación:", ["📡 Intel Dashboard", "🗺️ Mapa Táctico", "📝 Enviar Reporte"])
 
-# --- 1. MAPA & INTEL (FUSIÓN VISUAL) ---
-if opcion == "🗺️ Mapa & Intel":
-    st.title("🗺️ RADAR DE MERCADO")
+# --- 1. DASHBOARD (RECUPERADO) ---
+if opcion == "📡 Intel Dashboard":
+    st.title("📡 INTEL FEED")
     
-    # Filtro rápido
-    ver_dinero = st.toggle("🤑 Ver solo Oportunidades de Dinero", value=True)
+    # Tus Métricas (Ticker) volvieron
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Dólar (Calle)", "8.55 Bs", "🔥 High")
+    col2.metric("Euro (Calle)", "9.10 Bs", "Estable")
+    col3.metric("Clima", "12°C", "Nublado")
     
-    if ver_dinero:
-        # Filtramos solo cambio y ordenamos por precio
+    st.markdown("---")
+    st.subheader("🚨 Últimas Alertas")
+    st.warning("🚧 **Bloqueo:** Marcha en el Centro. Evitar El Prado.")
+    
+    st.markdown("---")
+    st.subheader("💎 Mejores Datos de Cambio")
+    # Tabla simple para ver rápido quién paga más
+    st.dataframe(
+        data_reportes[data_reportes['categoria']=='💱 Cambio'][['titulo', 'precio_dolar', 'descripcion']],
+        hide_index=True
+    )
+
+# --- 2. MAPA TÁCTICO (MEJORADO CON TU IDEA) ---
+elif opcion == "🗺️ Mapa Táctico":
+    st.title("🗺️ RADAR DE OPERACIONES")
+    
+    # Filtro
+    filtro = st.radio("Filtro:", ["Todo", "Solo Dinero 💱", "Solo Amenazas 🚧"], horizontal=True)
+    
+    if filtro == "Solo Dinero 💱":
         map_data = data_reportes[data_reportes['categoria'] == '💱 Cambio']
-        st.info("💡 **Tip:** Los círculos más grandes son los que pagan mejor.")
-        
-        # Mostramos KPIs clave arriba del mapa
-        mejor_tasa = map_data['precio_dolar'].max()
-        st.metric("🔥 MEJOR TASA DETECTADA", f"{mejor_tasa} Bs")
+        st.caption("💡 Los puntos más grandes son el mejor precio.")
+    elif filtro == "Solo Amenazas 🚧":
+        map_data = data_reportes[data_reportes['categoria'] == '🚧 Bloqueo']
     else:
         map_data = data_reportes
 
-    # EL MAPA (Ahora los puntos varían de tamaño según importancia)
+    # Mapa con puntos de tamaño variable
     st.map(map_data, color="color", size="size", zoom=13)
     
-    st.markdown("### 📝 Detalles de Inteligencia")
-    
-    # Mostramos las tarjetas de detalle (Aquí aparece tu descripción)
+    # Aquí mostramos los detalles visuales que pediste
+    st.markdown("### 👁️‍🗨️ Detalles Visuales (Señas)")
     for index, row in map_data.iterrows():
-        with st.container():
-            # Diseño de tarjeta para cada reporte
-            c1, c2 = st.columns([1, 3])
-            with c1:
-                # Icono gigante según categoría
-                if row['categoria'] == '💱 Cambio':
-                    st.markdown(f"## 💵\n**{row['precio_dolar']} Bs**")
-                else:
-                    st.markdown("## 🚧")
-            with c2:
-                st.subheader(row['titulo'])
-                st.caption(f"📍 Coordenadas: {row['lat']}, {row['lon']}")
-                st.write(f"👁️‍🗨️ **Intel Visual:** {row['descripcion']}")
-            st.divider()
+        with st.expander(f"{row['titulo']} ({row['categoria']})"):
+            st.write(f"**Descripción:** {row['descripcion']}")
+            if row['precio_dolar'] > 0:
+                st.write(f"**Precio:** {row['precio_dolar']} Bs")
 
-# --- 2. ENVIAR REPORTE (CON DESCRIPCIÓN VISUAL) ---
+# --- 3. REPORTE (CON TU NUEVO CAMPO DE TEXTO) ---
 elif opcion == "📝 Enviar Reporte":
-    st.title("⚡ NUEVO REPORTE")
+    st.title("⚡ REPORTE TÁCTICO")
     
-    tipo = st.selectbox("Categoría", ["💱 Tipo de Cambio (Dinero)", "🚧 Bloqueo (Ruta)", "🛡️ Seguridad"])
+    categoria = st.radio("Categoría:", ["💱 Tipo de Cambio", "🚧 Bloqueo", "🛡️ Otros"], horizontal=True)
     
-    with st.form("reporte_v2"):
-        if tipo == "💱 Tipo de Cambio (Dinero)":
-            col_din1, col_din2 = st.columns(2)
-            col_din1.number_input("Precio Compra (Bs)", value=8.50, step=0.05)
-            col_din2.selectbox("Moneda", ["USD", "EUR"])
+    with st.form("reporte"):
+        # Si es Dinero, mostramos el campo de "Señas Particulares"
+        if categoria == "💱 Tipo de Cambio":
+            col1, col2 = st.columns(2)
+            col1.number_input("Precio (Bs)", value=8.50, step=0.05)
+            col2.selectbox("Moneda", ["USD", "EUR"])
             
-            # EL CAMPO NUEVO QUE PEDISTE 👇
-            st.text_area("👁️‍🗨️ Señas Particulares (Clave para ubicarlo)", 
-                         placeholder="Ej: Señora con manta azul, kiosco al lado del poste, entrar al pasillo del fondo...")
+            st.markdown("**¿Cómo ubicamos al cambista?**")
+            st.text_area("Señas Particulares", placeholder="Ej: Señora de lentes, puesto azul, al lado del túnel...")
             
-        elif tipo == "🚧 Bloqueo (Ruta)":
-            st.select_slider("Gravedad", ["Tráfico Lento", "Bloqueo Total"])
-            st.text_area("Detalles visuales", placeholder="Ej: Están quemando llantas, hay paso por la vereda...")
+        elif categoria == "🚧 Bloqueo":
+            st.select_slider("Gravedad", ["Tráfico", "Colapso Total"])
+            st.text_area("Detalles", placeholder="Ej: Escombros en la vía...")
             
-        st.form_submit_button("🚀 PUBLICAR EN EL MAPA")
+        st.checkbox("📍 Usar mi GPS", value=True)
+        
+        if st.form_submit_button("🚀 ENVIAR"):
+            st.balloons()
+            st.success("Reporte agregado con éxito.")
+           
