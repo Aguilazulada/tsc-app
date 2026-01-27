@@ -2,109 +2,152 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-# --- CONFIGURACIÓN ---
+# --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="TSC | Andean Survival", page_icon="🏔️", layout="centered")
 
-# Estilos CSS (Recuperamos tu estilo original)
+# --- ESTILOS (DARK MODE + FUENTES GRANDES) ---
 st.markdown("""
     <style>
     .stApp { background-color: #0E1117; color: #FAFAFA; }
-    .stMetric { background-color: #262730; padding: 10px; border-radius: 5px; border: 1px solid #4F4F4F; }
+    div[data-testid="stMetricValue"] { font-size: 24px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- BASE DE DATOS (CON LA NUEVA COLUMNA DE DESCRIPCIÓN) ---
-data_reportes = pd.DataFrame({
-    'lat': [-16.4955, -16.5000, -16.5123, -16.4820],
-    'lon': [-68.1335, -68.1193, -68.1250, -68.1500],
-    'categoria': ['💱 Cambio', '🟢 Seguro', '🚧 Bloqueo', '💱 Cambio'],
-    'titulo': ['Casa El Sol', 'Plaza Murillo', 'Marcha Centro', 'Túnel San Francisco'],
-    'precio_dolar': [8.45, None, None, 8.55],
-    'descripcion': [
-        'Local formal con letrero amarillo.',
-        'Policía turística presente.',
-        'Mineros en la vía.',
-        'Señora de lentes y sombrero, silla blanca. Preguntar bajito.'
-    ],
-    'color': ['#00FF00', '#0000FF', '#FF0000', '#00FF00'],
-    'size': [50, 20, 100, 200] # El tamaño indica la calidad del dato
-})
+# --- FUNCIÓN DE CARGA DE DATOS (CONEXIÓN GOOGLE SHEETS) ---
+@st.cache_data(ttl=60) # Actualiza la caché cada 60 segundos
+def cargar_datos():
+    # Tu ID de hoja de cálculo real
+    SHEET_ID = "11ISvaU8BcuqnsFfliARmesR2fHxaMSlvEA0CcZslDOA"
+    # URL de exportación a CSV
+    url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
+    
+    try:
+        df = pd.read_csv(url)
+        
+        # LIMPIEZA Y RENOMBRE DE COLUMNAS
+        # Asumimos que Google Forms genera estas columnas (ajustar si cambian)
+        # El orden usual es: Marca temporal, Categoría, Título, Descripción, Precio, Lat, Lon
+        
+        # Renombramos las columnas clave para que la App las entienda
+        # NOTA: Ajusta los nombres de la izquierda si en tu Excel son distintos
+        rename_map = {
+            df.columns[0]: 'fecha',         # Marca temporal
+            df.columns[1]: 'categoria',     # Categoría
+            df.columns[2]: 'titulo',        # Título/Lugar
+            df.columns[3]: 'descripcion',   # Descripción
+            df.columns[4]: 'precio_dolar',  # Precio
+            df.columns[5]: 'lat',           # Latitud
+            df.columns[6]: 'lon'            # Longitud
+        }
+        df = df.rename(columns=rename_map)
+        
+        # Aseguramos que lat/lon sean números (a veces Google los pone con comas)
+        # Esto convierte comas a puntos si es necesario
+        df['lat'] = pd.to_numeric(df['lat'].astype(str).str.replace(',', '.'), errors='coerce')
+        df['lon'] = pd.to_numeric(df['lon'].astype(str).str.replace(',', '.'), errors='coerce')
+        df['precio_dolar'] = pd.to_numeric(df['precio_dolar'], errors='coerce').fillna(0)
+        
+        # Asignamos colores y tamaños según categoría para el mapa
+        conditions = [
+            (df['categoria'].str.contains('Cambio', case=False, na=False)),
+            (df['categoria'].str.contains('Bloqueo', case=False, na=False)),
+            (df['categoria'].str.contains('Seguro', case=False, na=False))
+        ]
+        colors = ['#00FF00', '#FF0000', '#0000FF'] # Verde ($), Rojo (Bloqueo), Azul (Seguro)
+        sizes = [df['precio_dolar']*10, 100, 20]   # Tamaño dinámico
+        
+        df['color'] = np.select(conditions, colors, default='#808080')
+        
+        # Calculamos tamaño solo si es dinero, sino tamaño fijo
+        df['size'] = np.where(df['categoria'].str.contains('Cambio', case=False), 
+                              df['precio_dolar'] * 20, # Multiplicador para que se vea
+                              50) # Tamaño fijo para otros
+                              
+        return df.dropna(subset=['lat', 'lon']) # Eliminamos filas sin coordenadas
+        
+    except Exception as e:
+        st.error(f"Error al conectar con Google Sheets: {e}")
+        return pd.DataFrame() # Retorna vacío si falla
+
+# --- CARGAR DATOS ---
+data_reportes = cargar_datos()
 
 # --- BARRA LATERAL ---
 st.sidebar.title("🏔️ TSC COMMAND")
+st.sidebar.markdown("---")
 opcion = st.sidebar.radio("Navegación:", ["📡 Intel Dashboard", "🗺️ Mapa Táctico", "📝 Enviar Reporte"])
 
-# --- 1. DASHBOARD (RECUPERADO) ---
+if st.sidebar.button("🔄 Actualizar Datos"):
+    st.cache_data.clear()
+    st.rerun()
+
+# --- 1. DASHBOARD ---
 if opcion == "📡 Intel Dashboard":
     st.title("📡 INTEL FEED")
     
-    # Tus Métricas (Ticker) volvieron
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Dólar (Calle)", "8.55 Bs", "🔥 High")
-    col2.metric("Euro (Calle)", "9.10 Bs", "Estable")
-    col3.metric("Clima", "12°C", "Nublado")
-    
-    st.markdown("---")
-    st.subheader("🚨 Últimas Alertas")
-    st.warning("🚧 **Bloqueo:** Marcha en el Centro. Evitar El Prado.")
-    
-    st.markdown("---")
-    st.subheader("💎 Mejores Datos de Cambio")
-    # Tabla simple para ver rápido quién paga más
-    st.dataframe(
-        data_reportes[data_reportes['categoria']=='💱 Cambio'][['titulo', 'precio_dolar', 'descripcion']],
-        hide_index=True
-    )
+    # Métricas Clave (Calculadas de datos reales)
+    if not data_reportes.empty:
+        mejor_cambio = data_reportes[data_reportes['categoria'].str.contains('Cambio', na=False)]['precio_dolar'].max()
+        total_alertas = len(data_reportes[data_reportes['categoria'].str.contains('Bloqueo', na=False)])
+    else:
+        mejor_cambio = 0
+        total_alertas = 0
 
-# --- 2. MAPA TÁCTICO (MEJORADO CON TU IDEA) ---
+    col1, col2 = st.columns(2)
+    col1.metric("Mejor Dólar (Venta)", f"{mejor_cambio} Bs")
+    col2.metric("Alertas Activas", f"{total_alertas}", "Reportadas")
+    
+    st.markdown("---")
+    st.subheader("📋 Feed de Reportes (En Vivo)")
+    
+    if not data_reportes.empty:
+        st.dataframe(
+            data_reportes[['categoria', 'titulo', 'precio_dolar', 'fecha']],
+            hide_index=True,
+            use_container_width=True
+        )
+    else:
+        st.info("No hay datos aún. Sé el primero en reportar.")
+
+# --- 2. MAPA TÁCTICO ---
 elif opcion == "🗺️ Mapa Táctico":
     st.title("🗺️ RADAR DE OPERACIONES")
     
-    # Filtro
     filtro = st.radio("Filtro:", ["Todo", "Solo Dinero 💱", "Solo Amenazas 🚧"], horizontal=True)
     
-    if filtro == "Solo Dinero 💱":
-        map_data = data_reportes[data_reportes['categoria'] == '💱 Cambio']
-        st.caption("💡 Los puntos más grandes son el mejor precio.")
-    elif filtro == "Solo Amenazas 🚧":
-        map_data = data_reportes[data_reportes['categoria'] == '🚧 Bloqueo']
+    if not data_reportes.empty:
+        if filtro == "Solo Dinero 💱":
+            map_data = data_reportes[data_reportes['categoria'].str.contains('Cambio', na=False)]
+        elif filtro == "Solo Amenazas 🚧":
+            map_data = data_reportes[data_reportes['categoria'].str.contains('Bloqueo', na=False)]
+        else:
+            map_data = data_reportes
+
+        st.map(map_data, color="color", size="size", zoom=12)
+        
+        # Detalles debajo del mapa
+        st.markdown("### 👁️‍🗨️ Detalles Visuales")
+        for index, row in map_data.iterrows():
+            with st.expander(f"{row['titulo']} ({row['categoria']})"):
+                st.write(f"**Descripción:** {row['descripcion']}")
+                if row['precio_dolar'] > 0:
+                    st.write(f"**Precio:** {row['precio_dolar']} Bs")
+                st.caption(f"Reportado: {row['fecha']}")
     else:
-        map_data = data_reportes
+        st.warning("Esperando datos de satélite...")
 
-    # Mapa con puntos de tamaño variable
-    st.map(map_data, color="color", size="size", zoom=13)
-    
-    # Aquí mostramos los detalles visuales que pediste
-    st.markdown("### 👁️‍🗨️ Detalles Visuales (Señas)")
-    for index, row in map_data.iterrows():
-        with st.expander(f"{row['titulo']} ({row['categoria']})"):
-            st.write(f"**Descripción:** {row['descripcion']}")
-            if row['precio_dolar'] > 0:
-                st.write(f"**Precio:** {row['precio_dolar']} Bs")
-
-# --- 3. REPORTE (CON TU NUEVO CAMPO DE TEXTO) ---
+# --- 3. ENVIAR REPORTE (LINK AL FORM) ---
 elif opcion == "📝 Enviar Reporte":
     st.title("⚡ REPORTE TÁCTICO")
+    st.markdown("""
+    Para mantener la seguridad de la red, usamos un canal encriptado (Google Forms) para la ingesta de datos.
     
-    categoria = st.radio("Categoría:", ["💱 Tipo de Cambio", "🚧 Bloqueo", "🛡️ Otros"], horizontal=True)
+    Tus datos aparecerán en el mapa automáticamente en 60 segundos.
+    """)
     
-    with st.form("reporte"):
-        # Si es Dinero, mostramos el campo de "Señas Particulares"
-        if categoria == "💱 Tipo de Cambio":
-            col1, col2 = st.columns(2)
-            col1.number_input("Precio (Bs)", value=8.50, step=0.05)
-            col2.selectbox("Moneda", ["USD", "EUR"])
-            
-            st.markdown("**¿Cómo ubicamos al cambista?**")
-            st.text_area("Señas Particulares", placeholder="Ej: Señora de lentes, puesto azul, al lado del túnel...")
-            
-        elif categoria == "🚧 Bloqueo":
-            st.select_slider("Gravedad", ["Tráfico", "Colapso Total"])
-            st.text_area("Detalles", placeholder="Ej: Escombros en la vía...")
-            
-        st.checkbox("📍 Usar mi GPS", value=True)
-        
-        if st.form_submit_button("🚀 ENVIAR"):
-            st.balloons()
-            st.success("Reporte agregado con éxito.")
-           
+    # IMPORTANTE: CAMBIA ESTE LINK POR EL DE TU FORMULARIO (Botón "Enviar" -> Link)
+    link_formulario = "https://docs.google.com/spreadsheets/d/11ISvaU8BcuqnsFfliARmesR2fHxaMSlvEA0CcZslDOA/edit?usp=sharing" 
+    
+    st.link_button("🚀 ABRIR CANAL DE REPORTE", link_formulario, type="primary", use_container_width=True)
+    
+    st.info("💡 **Tip:** Si estás en el lugar, activa el GPS de tu cámara para copiar las coordenadas.")
