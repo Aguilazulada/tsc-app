@@ -12,62 +12,60 @@ st.markdown("""
     div[data-testid="stMetricValue"] { font-size: 24px; }
     </style>
     """, unsafe_allow_html=True)
-
-# --- FUNCIÓN DE CARGA DE DATOS (CONEXIÓN GOOGLE SHEETS) ---
-@st.cache_data(ttl=60) # Actualiza la caché cada 60 segundos
+# --- FUNCIÓN DE CARGA DE DATOS (CORREGIDA PARA 8 COLUMNAS) ---
+@st.cache_data(ttl=60)
 def cargar_datos():
-    # Tu ID de hoja de cálculo real
     SHEET_ID = "11ISvaU8BcuqnsFfliARmesR2fHxaMSlvEA0CcZslDOA"
-    # URL de exportación a CSV
     url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
     
     try:
         df = pd.read_csv(url)
         
-        # LIMPIEZA Y RENOMBRE DE COLUMNAS
-        # Asumimos que Google Forms genera estas columnas (ajustar si cambian)
-        # El orden usual es: Marca temporal, Categoría, Título, Descripción, Precio, Lat, Lon
+        # MAPA DE COLUMNAS (Ajustado a tu Excel real)
+        # 0:Fecha | 1:Categoria | 2:Titulo | 3:Lugar | 4:Descripcion | 5:Precio | 6:Lat | 7:Lon
         
-        # Renombramos las columnas clave para que la App las entienda
-        # NOTA: Ajusta los nombres de la izquierda si en tu Excel son distintos
         rename_map = {
-            df.columns[0]: 'fecha',         # Marca temporal
-            df.columns[1]: 'categoria',     # Categoría
-            df.columns[2]: 'titulo',        # Título/Lugar
-            df.columns[3]: 'descripcion',   # Descripción
-            df.columns[4]: 'precio_dolar',  # Precio
-            df.columns[5]: 'lat',           # Latitud
-            df.columns[6]: 'lon'            # Longitud
+            df.columns[0]: 'fecha',
+            df.columns[1]: 'categoria',
+            df.columns[2]: 'titulo',
+            # La columna 3 es 'Lugar'. No la asignamos directo, pero la usaremos abajo.
+            df.columns[4]: 'descripcion',
+            df.columns[5]: 'precio_dolar',
+            df.columns[6]: 'lat',
+            df.columns[7]: 'lon'
         }
         df = df.rename(columns=rename_map)
         
-        # Aseguramos que lat/lon sean números (a veces Google los pone con comas)
-        # Esto convierte comas a puntos si es necesario
+        # TRUCO: Unimos el "Lugar" al Título para no perder esa info
+        # Ejemplo: "Casa de Cambio (Zona Sur)"
+        df['titulo'] = df['titulo'] + " - " + df.iloc[:, 3].astype(str)
+
+        # LIMPIEZA DE NUMEROS (Lat/Lon/Precio)
         df['lat'] = pd.to_numeric(df['lat'].astype(str).str.replace(',', '.'), errors='coerce')
         df['lon'] = pd.to_numeric(df['lon'].astype(str).str.replace(',', '.'), errors='coerce')
         df['precio_dolar'] = pd.to_numeric(df['precio_dolar'], errors='coerce').fillna(0)
         
-        # Asignamos colores y tamaños según categoría para el mapa
+        # ASIGNACIÓN DE COLORES
         conditions = [
             (df['categoria'].str.contains('Cambio', case=False, na=False)),
             (df['categoria'].str.contains('Bloqueo', case=False, na=False)),
             (df['categoria'].str.contains('Seguro', case=False, na=False))
         ]
-        colors = ['#00FF00', '#FF0000', '#0000FF'] # Verde ($), Rojo (Bloqueo), Azul (Seguro)
-        sizes = [df['precio_dolar']*10, 100, 20]   # Tamaño dinámico
-        
+        colors = ['#00FF00', '#FF0000', '#0000FF'] # Verde, Rojo, Azul
         df['color'] = np.select(conditions, colors, default='#808080')
         
-        # Calculamos tamaño solo si es dinero, sino tamaño fijo
+        # ASIGNACIÓN DE TAMAÑOS
         df['size'] = np.where(df['categoria'].str.contains('Cambio', case=False), 
-                              df['precio_dolar'] * 20, # Multiplicador para que se vea
-                              50) # Tamaño fijo para otros
+                              df['precio_dolar'] * 20, 
+                              50)
                               
-        return df.dropna(subset=['lat', 'lon']) # Eliminamos filas sin coordenadas
+        return df.dropna(subset=['lat', 'lon'])
         
     except Exception as e:
-        st.error(f"Error al conectar con Google Sheets: {e}")
-        return pd.DataFrame() # Retorna vacío si falla
+        # Esto te ayudará a ver errores en la pantalla si algo falla
+        st.error(f"Error leyendo Google Sheets: {e}")
+        return pd.DataFrame()
+
 
 # --- CARGAR DATOS ---
 data_reportes = cargar_datos()
