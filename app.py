@@ -16,28 +16,29 @@ try:
 except Exception as e:
     st.error(f"❌ Error en Secrets: {e}")
 
-# --- 2. INTERFAZ ---
+# --- 2. INTERFAZ AGUILAZULADA ---
 st.title("🦅 Aguilazulada")
 
 nombre = st.text_input("👤 Reportado por:")
 novedad = st.selectbox("📝 Novedad:", ["Bloqueo", "Precio Dólar", "Marchas", "Street food", "Otros"])
 
-# --- LA FOTO QUE ME PEDISTE MANTENER ---
+# --- 📸 OPCIÓN DE FOTO (SIEMPRE MANTENIDA) ---
 st.write("---")
 foto = st.file_uploader("📸 Adjuntar Foto (Evidencia)", type=["jpg", "png", "jpeg"])
 if foto:
-    st.image(foto, caption="Vista previa", use_container_width=True)
+    st.image(foto, caption="Imagen cargada correctamente", use_container_width=True)
 
-comentarios = st.text_area("💬 Detalles:")
+comentarios = st.text_area("💬 Detalles del reporte:")
 
 st.write("---")
 
 # --- 3. GPS Y MAPA ---
 st.subheader("📍 Ubicación Satelital")
+st.info("Presiona el botón y acepta los permisos en tu navegador.")
 
-if st.button("📡 CAPTURAR UBICACIÓN Y VER MAPA"):
+if st.button("📡 ACTIVAR GPS Y VER MAPA"):
     # Captura de coordenadas
-    loc = streamlit_js_eval(js_expressions='done(JSON.stringify(window.navigator.geolocation.getCurrentPosition(x => x.coords)))', key='gps_final_v11')
+    loc = streamlit_js_eval(js_expressions='done(JSON.stringify(window.navigator.geolocation.getCurrentPosition(x => x.coords)))', key='gps_final_v12')
     
     if loc:
         pos = json.loads(loc)
@@ -46,23 +47,23 @@ if st.button("📡 CAPTURAR UBICACIÓN Y VER MAPA"):
 
 if 'lat' in st.session_state and st.session_state.lat:
     lat, lon = st.session_state.lat, st.session_state.lon
-    st.success("✅ Coordenadas fijadas")
+    st.success(f"✅ Satélite conectado.")
     
     # Dibujar el mapa
     df_mapa = pd.DataFrame({'lat': [lat], 'lon': [lon]})
     st.map(df_mapa)
     
-    # --- BOTÓN DE ENVÍO AL EXCEL ---
-    if st.button("🚀 ENVIAR TODO AL EXCEL"):
+    # --- BOTÓN DE ENVÍO FINAL ---
+    if st.button("🚀 ENVIAR REPORTE AL EXCEL"):
         try:
-            # Asegúrate que el nombre del Excel sea exacto
+            # El nombre debe ser exacto al de tu Google Sheets
             sheet = client.open("FORMULARIO SIN TÍTULO (Respuestas)").sheet1
             fecha = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            # Guardamos: Fecha, Nombre, Novedad, Detalles, Lat, Lon
             sheet.append_row([fecha, nombre, novedad, comentarios, lat, lon])
             st.balloons()
-            st.success("¡Reporte guardado con éxito!")
+            st.success("¡Misión cumplida! Datos guardados en el Excel.")
         except Exception as e:
             st.error(f"Error al conectar con el Excel: {e}")
 else:
-    st.warning("Presiona el botón 'Capturar Ubicación' para ver el mapa.")
-
+    st.warning("El mapa aparecerá cuando captures la ubicación.")
