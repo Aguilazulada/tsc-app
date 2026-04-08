@@ -1,15 +1,17 @@
 import streamlit as st
 import gspread
-import json
+import json  # <--- Asegúrate de que no tenga la "a"
 from google.oauth2.service_account import Credentials
 from streamlit_js_eval import streamlit_js_eval
 import pandas as pd
 from datetime import datetime
 
-# --- 1. CONFIGURACIÓN DE SEGURIDAD (Caja Fuerte) ---
-# Conectamos con la llave JSON que guardaste en los Secrets
+# --- 1. CONFIGURACIÓN DE SEGURIDAD ---
 scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-creds_dict = st.secrets["google_credentials"]
+
+# Convertimos el texto de la llave en un diccionario real
+# Esta es la línea que ahora debería ser la #13 o #14
+creds_dict = json.loads(st.secrets["google_credentials"])
 creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
 client = gspread.authorize(creds)
 
