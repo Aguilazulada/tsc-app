@@ -14,69 +14,55 @@ try:
     creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
     client = gspread.authorize(creds)
 except Exception as e:
-    st.error(f"❌ Error en la 'Caja Fuerte' (Secrets): {e}")
+    st.error(f"❌ Error en Secrets: {e}")
 
-# --- 2. INTERFAZ AGUILAZULADA ---
+# --- 2. INTERFAZ ---
 st.title("🦅 Aguilazulada")
-st.markdown("### Reporte Multi-Propósito")
 
-nombre = st.text_input("👤 Reportado por:", placeholder="Tu nombre")
-novedad = st.selectbox("📝 Tipo de Novedad:", ["Bloqueo", "Precio Dólar", "Marchas", "Street food", "Otros"])
+nombre = st.text_input("👤 Reportado por:")
+novedad = st.selectbox("📝 Novedad:", ["Bloqueo", "Precio Dólar", "Marchas", "Street food", "Otros"])
 
-# --- LA OPCIÓN DE FOTO (SE MANTIENE SIEMPRE) ---
+# --- LA FOTO QUE ME PEDISTE MANTENER ---
 st.write("---")
-foto = st.file_uploader("📸 Adjuntar Foto (Opcional)", type=["jpg", "png", "jpeg"])
+foto = st.file_uploader("📸 Adjuntar Foto (Evidencia)", type=["jpg", "png", "jpeg"])
 if foto:
-    st.image(foto, caption="Vista previa de la imagen", use_container_width=True)
+    st.image(foto, caption="Vista previa", use_container_width=True)
 
-comentarios = st.text_area("💬 Detalles del reporte:")
-
-st.write("---")
-
-# --- 3. DIAGNÓSTICO DEL EXCEL (Para saber si el Sheet está bien) ---
-if st.button("🧪 Probar Conexión al Excel"):
-    try:
-        # Busca el nombre exacto de tu archivo
-        sheet = client.open("FORMULARIO SIN TÍTULO (Respuestas)").sheet1
-        st.success("✅ ¡Conexión exitosa! El robot puede escribir en tu Google Sheet.")
-    except Exception as e:
-        st.error(f"❌ Error con el Excel: {e}")
-        st.info("Revisa que hayas compartido el archivo con el correo del robot como 'Editor'.")
+comentarios = st.text_area("💬 Detalles:")
 
 st.write("---")
 
-# --- 4. EL GPS Y EL MAPA ---
-st.subheader("📍 Ubicación")
-st.info("Si el mapa no carga, presiona el botón de abajo y acepta los permisos en la parte superior del navegador.")
+# --- 3. GPS Y MAPA ---
+st.subheader("📍 Ubicación Satelital")
 
-# Botón para forzar la captura
-if st.button("📡 ACTIVAR GPS Y MAPA"):
-    loc = streamlit_js_eval(js_expressions='done(JSON.stringify(window.navigator.geolocation.getCurrentPosition(x => x.coords)))', key='gps_final_ultra')
+if st.button("📡 CAPTURAR UBICACIÓN Y VER MAPA"):
+    # Captura de coordenadas
+    loc = streamlit_js_eval(js_expressions='done(JSON.stringify(window.navigator.geolocation.getCurrentPosition(x => x.coords)))', key='gps_final_v11')
     
     if loc:
         pos = json.loads(loc)
         st.session_state.lat = pos.get('latitude')
         st.session_state.lon = pos.get('longitude')
 
-# Mostrar mapa si hay datos
 if 'lat' in st.session_state and st.session_state.lat:
     lat, lon = st.session_state.lat, st.session_state.lon
-    st.success(f"✅ Satélite conectado.")
+    st.success("✅ Coordenadas fijadas")
     
+    # Dibujar el mapa
     df_mapa = pd.DataFrame({'lat': [lat], 'lon': [lon]})
     st.map(df_mapa)
     
-    # ENVÍO FINAL
-    if st.button("🚀 ENVIAR REPORTE"):
+    # --- BOTÓN DE ENVÍO AL EXCEL ---
+    if st.button("🚀 ENVIAR TODO AL EXCEL"):
         try:
+            # Asegúrate que el nombre del Excel sea exacto
             sheet = client.open("FORMULARIO SIN TÍTULO (Respuestas)").sheet1
             fecha = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-            # Guardamos: Fecha, Nombre, Novedad, Detalles, Lat, Lon
             sheet.append_row([fecha, nombre, novedad, comentarios, lat, lon])
             st.balloons()
-            st.success("¡Reporte enviado correctamente!")
+            st.success("¡Reporte guardado con éxito!")
         except Exception as e:
-            st.error(f"Error al enviar: {e}")
+            st.error(f"Error al conectar con el Excel: {e}")
 else:
-    st.warning("Esperando coordenadas para dibujar el mapa...")
+    st.warning("Presiona el botón 'Capturar Ubicación' para ver el mapa.")
 
