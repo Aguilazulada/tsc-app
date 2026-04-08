@@ -5,65 +5,51 @@ from google.oauth2.service_account import Credentials
 from streamlit_js_eval import streamlit_js_eval
 from datetime import datetime
 
-# --- 1. CONFIGURACIÓN DE SEGURIDAD (No tocar, ya funciona) ---
+# --- 1. CONFIGURACIÓN DE SEGURIDAD (Ya la dominas) ---
 scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-try:
-    raw_creds = st.secrets["google_credentials"]
-    creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else dict(raw_creds)
-    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-    client = gspread.authorize(creds)
-except Exception as e:
-    st.error(f"Error de credenciales: {e}")
+raw_creds = st.secrets["google_credentials"]
+creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else dict(raw_creds)
+creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+client = gspread.authorize(creds)
 
-# --- 2. INTERFAZ: RECUPERANDO EL LOOK ORIGINAL ---
-st.set_page_config(page_title="Aguilazulada GPS", page_icon="🦅")
+# --- 2. INTERFAZ QUE TE GUSTABA ---
 st.title("🦅 Aguilazulada")
+st.markdown("### Formulario de Reporte Directo")
 
-st.subheader("📝 Datos del Reporte")
+# Campos del formulario (ajústalos a tu gusto)
+nombre = st.text_input("👤 Reportado por:")
+comentarios = st.text_area("📝 Novedades:")
 
-# Aquí he puesto campos genéricos, dime cuáles tenías tú y los cambio:
-nombre = st.text_input("👤 Nombre / Identificador")
-descripcion = st.text_area("📋 Observaciones o Novedades")
+st.write("---")
 
-st.markdown("---")
+# --- 3. EL GPS (El truco del botón) ---
+st.subheader("📍 Localización")
+st.info("Haz clic abajo para activar el GPS. Si sale un aviso arriba, dale a 'Permitir'.")
 
-# --- 3. EL GPS (Versión 2.0 más fuerte) ---
-st.subheader("📍 Ubicación Satelital")
-st.write("Presiona el botón para fijar tu posición:")
+# Este botón es el que "obliga" al navegador a buscarte
+if st.button("🛰️ CLIC AQUÍ PARA FIJAR UBICACIÓN"):
+    loc = streamlit_js_eval(js_expressions='done(JSON.stringify(window.navigator.geolocation.getCurrentPosition(x => x.coords)))', target_id='get_location')
+    
+    if loc:
+        datos_gps = json.loads(loc)
+        st.session_state.lat = datos_gps.get('latitude')
+        st.session_state.lon = datos_gps.get('longitude')
 
-# Usamos una versión de JS que suele ser más compatible con celulares y PCs viejitas
-loc = streamlit_js_eval(js_expressions='done(JSON.stringify(window.navigator.geolocation.getCurrentPosition(x => x.coords)))', key='get_location_final')
-
-if loc:
-    try:
-        pos = json.loads(loc)
-        # Algunos navegadores devuelven la info un poco distinto, aquí cubrimos ambos casos
-        lat = pos.get('latitude') or pos.get('coords', {}).get('latitude')
-        lon = pos.get('longitude') or pos.get('coords', {}).get('longitude')
-        
-        if lat and lon:
-            st.success(f"✅ Ubicación fijada: {lat}, {lon}")
-            
-            # --- BOTÓN DE ENVÍO ---
-            if st.button("🚀 ENVIAR REPORTE AL EXCEL"):
-                try:
-                    sheet = client.open("FORMULARIO SIN TÍTULO (Respuestas)").sheet1
-                    fecha = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                    
-                    # Mandamos: Fecha, Nombre, Descripción, Latitud, Longitud
-                    sheet.append_row([fecha, nombre, descripcion, lat, lon])
-                    
-                    st.balloons()
-                    st.success("¡Datos guardados con éxito en el Excel!")
-                except Exception as e:
-                    st.error(f"Error al guardar: {e}")
-        else:
-            st.warning("⚠️ El GPS respondió pero no envió coordenadas claras. Intenta refrescar.")
-    except Exception as e:
-        st.error(f"Error procesando ubicación: {e}")
+# Si ya tenemos la ubicación en memoria, la mostramos
+if 'lat' in st.session_state and st.session_state.lat:
+    st.success(f"✅ Coordenadas listas: {st.session_state.lat}, {st.session_state.lon}")
+    
+    # --- BOTÓN DE ENVÍO FINAL ---
+    if st.button("🚀 ENVIAR AL EXCEL"):
+        try:
+            sheet = client.open("FORMULARIO SIN TÍTULO (Respuestas)").sheet1
+            fecha = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            # Enviamos: Fecha, Nombre, Comentarios, Lat, Lon
+            sheet.append_row([fecha, nombre, comentarios, st.session_state.lat, st.session_state.lon])
+            st.balloons()
+            st.success("¡Reporte guardado en el Google Sheet!")
+        except Exception as e:
+            st.error(f"Hubo un problema al guardar: {e}")
 else:
-    st.info("🛰️ Buscando señal... Si no aparece, dale a 'Recargar' en tu navegador.")
-    if st.button("🔄 Reintentar capturar señal"):
-        st.rerun()
-
+    st.warning("Pendiente: Capturar ubicación satelital.")
 
