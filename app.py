@@ -20,11 +20,10 @@ except Exception as e:
 # --- 2. INTERFAZ ---
 st.title("🦅 Aguilazulada")
 
-nombre = st.text_input("👤 Reportado por:", placeholder="Tu nombre")
+nombre = st.text_input("👤 Reportado por:")
 novedad = st.selectbox("📝 Novedad:", ["Bloqueo", "Precio Dólar", "Marchas", "Street food", "Otros"])
 
 st.write("---")
-# FOTO SIEMPRE PRESENTE
 foto = st.file_uploader("📸 Adjuntar Foto (Evidencia)", type=["jpg", "png", "jpeg"])
 if foto:
     st.image(foto, caption="Evidencia lista", use_container_width=True)
@@ -33,34 +32,39 @@ comentarios = st.text_area("💬 Detalles:")
 
 st.write("---")
 
-# --- 3. SISTEMA DE GPS MEJORADO ---
-st.subheader("📍 Ubicación Satelital")
+# --- 3. SISTEMA DE GPS ULTRA-PRECISO ---
+st.subheader("📍 Ubicación")
 
-# Usamos un checkbox como interruptor. Es mucho más estable que un botón para el GPS.
-activar_gps = st.checkbox("📡 ACTIVAR GPS PARA EL REPORTE")
+# Este interruptor "enciende" el motor de búsqueda
+activar_gps = st.checkbox("🛰️ CONECTAR CON SATÉLITE")
 
 if activar_gps:
-    # Este es el comando que "despierta" al celular
-    loc = streamlit_js_eval(js_expressions='done(JSON.stringify(window.navigator.geolocation.getCurrentPosition(x => ({lat: x.coords.latitude, lon: x.coords.longitude}))))', key='gps_vFinal_LaPaz')
+    # JS Mejorado: Pide alta precisión y tiene un tiempo de espera
+    js_gps = """
+    navigator.geolocation.getCurrentPosition(
+        (pos) => { 
+            done(JSON.stringify({lat: pos.coords.latitude, lon: pos.coords.longitude, ok: true})) 
+        },
+        (err) => { 
+            done(JSON.stringify({error: err.message, ok: false})) 
+        },
+        {enableHighAccuracy: true, timeout: 10000, maximumAge: 0}
+    );
+    """
+    loc = streamlit_js_eval(js_expressions=js_gps, key='gps_ultra_final')
     
     if loc:
-        try:
-            pos = json.loads(loc)
-            lat, lon = pos.get('lat'), pos.get('lon')
-            
-            if lat:
-                st.success(f"✅ Satélite enlazado: {lat}, {lon}")
-                # Mostramos el Mapa
-                df_mapa = pd.DataFrame({'lat': [lat], 'lon': [lon]})
-                st.map(df_mapa)
-                
-                # Guardamos en la memoria de la app
-                st.session_state.lat = lat
-                st.session_state.lon = lon
-        except:
-            st.info("🔄 Sincronizando con el satélite...")
+        res = json.loads(loc)
+        if res.get('ok'):
+            lat, lon = res['lat'], res['lon']
+            st.success(f"✅ ¡Señal capturada! ({lat}, {lon})")
+            st.map(pd.DataFrame({'lat': [lat], 'lon': [lon]}))
+            st.session_state.lat, st.session_state.lon = lat, lon
+        else:
+            st.error(f"❌ El celular dice: {res.get('error')}")
+            st.info("Asegúrate de haberle dado a 'PERMITIR' cuando salió el aviso.")
     else:
-        st.warning("🛰️ Buscando señal... Si tu celular te pregunta, dale a 'PERMITIR'.")
+        st.info("📡 Buscando... Si no aparece nada en 10 segundos, refresca la página.")
 
 st.write("---")
 
@@ -70,11 +74,13 @@ if st.button("🚀 ENVIAR REPORTE AL EXCEL"):
         try:
             sheet = client.open("FORMULARIO SIN TÍTULO (Respuestas)").sheet1
             fecha = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-            # Guardamos: Fecha, Nombre, Novedad, Detalles, Lat, Lon
             sheet.append_row([fecha, nombre, novedad, comentarios, st.session_state.lat, st.session_state.lon])
             st.balloons()
-            st.success("¡DATOS ENVIADOS! Revisa tu Google Sheet.")
+            st.success("¡REPORTE ENVIADO CON ÉXITO!")
         except Exception as e:
             st.error(f"Error al escribir en Excel: {e}")
     else:
-        st.error("❌ No hay ubicación. Primero marca el cuadro de 'Activar GPS' arriba.")
+        st.error("❌ No hay ubicación. Activa el GPS arriba primero.")
+
+
+   
