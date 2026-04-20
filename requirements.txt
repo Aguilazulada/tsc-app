@@ -1,3 +1,5 @@
 streamlit
 gpxpy
 gspread
+streamlit-js-eval
+pandas
