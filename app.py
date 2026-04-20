@@ -1,66 +1,66 @@
 import streamlit as st
-import pandas as pd
 
 def run_uyunitec_sim():
-    # --- CONFIGURACIÓN DE LA MISIÓN ---
-    TANQUE_TOTAL = 70  # Litros
+    # --- 1. PARÁMETROS FIJOS ---
+    TANQUE_TOTAL = 70  # Litros del Fulwin T10
+    PRECIO_LITRO_BS = 6.96
+    CONSUMO_LC_BASE = 22 # Litros/100km Land Cruiser
 
-    def simulador_uyunitec(distancia, terreno_tipo, altitud_avg):
-        consumo_base = 5.75 
-        
-        # FACTORES DE TERRENO ACTUALIZADOS
-        factores_terreno = {
-            "pavimento": 1.0, 
-            "salar (seco)": 1.1,  # Eficiente pero con resistencia salina
-            "calamina": 1.3, 
-            "arena": 1.6
-        }
-        
-        penalizacion = factores_terreno.get(terreno_tipo, 1.0)
-        eficiencia_altitud = max(0.6, 1 - (altitud_avg / 12000)) 
-        
-        consumo_final = (consumo_base * penalizacion) / eficiencia_altitud
-        total_combustible = (distancia / 100) * consumo_final
-        
-        return round(total_combustible, 2)
-
-    # --- INTERFAZ ---
     st.title("🏔️ UyuniTec: Simulador de Misión")
     st.subheader("Cerebro de Predicción para Chery Fulwin T10 4x4")
 
+    # --- 2. ENTRADAS DE USUARIO ---
     col_p, col_a = st.columns(2)
     with col_p:
-        distancia = st.number_input("Distancia Total (km)", value=100)
+        distancia = st.number_input("Distancia Total (km)", value=100, min_value=1)
         terreno = st.selectbox("Tipo de Terreno", ["pavimento", "salar (seco)", "calamina", "arena"])
     with col_a:
         altitud = st.slider("Altitud Promedio (msnm)", 3000, 5000, 3800)
 
+    # --- 3. LÓGICA DE CÁLCULO ---
+    # Factores de fricción
+    factores_terreno = {
+        "pavimento": 1.0, 
+        "salar (seco)": 1.1, 
+        "calamina": 1.3, 
+        "arena": 1.6
+    }
+    
+    penalizacion = factores_terreno.get(terreno, 1.0)
+    # Pérdida de eficiencia por oxígeno (Motor térmico sufre, eléctrico apoya)
+    eficiencia_altitud = max(0.6, 1 - (altitud / 12000)) 
+    
+    # Consumo final estimado (L/100km)
+    consumo_estimado_100km = (5.75 * penalizacion) / eficiencia_altitud
+    total_litros_necesarios = round((distancia / 100) * consumo_estimado_100km, 2)
+
+    # --- 4. RESULTADOS ---
     if st.button("🚀 Ejecutar Simulación"):
-        litros = simulador_uyunitec(distancia, terreno, altitud)
-        
-        # Cálculos de Porcentaje
-        porcentaje_usado = min(100, int((litros / TANQUE_TOTAL) * 100))
+        porcentaje_usado = min(100, int((total_litros_necesarios / TANQUE_TOTAL) * 100))
         porcentaje_restante = 100 - porcentaje_usado
-        litros_restantes = round(TANQUE_TOTAL - litros, 2)
+        litros_restantes = round(TANQUE_TOTAL - total_litros_necesarios, 2)
         
-        costo_gasolina = 6.96
-        costo_lc = (distancia / 100) * 22 * costo_gasolina
-        costo_fulwin = litros * costo_gasolina
+        # Comparativa Económica
+        costo_lc = (distancia / 100) * CONSUMO_LC_BASE * PRECIO_LITRO_BS
+        costo_fulwin = total_litros_necesarios * PRECIO_LITRO_BS
+        ahorro = costo_lc - costo_fulwin
         
         st.markdown("---")
         c1, c2, c3 = st.columns(3)
-        c1.metric("Consumo Fulwin", f"{litros} L")
-        c2.metric("Ahorro vs LC", f"Bs {round(costo_lc - costo_fulwin, 2)}")
+        c1.metric("Consumo Fulwin", f"{total_litros_necesarios} L")
+        c2.metric("Ahorro vs LC", f"Bs {round(ahorro, 2)}")
         c3.metric("Tanque Restante", f"{porcentaje_restante}%")
         
-        if litros > TANQUE_TOTAL:
-            st.error(f"⚠️ ¡ALERTA! Te faltarían {abs(litros_restantes)} litros para llegar. Necesitas bidones.")
+        # Barra de progreso y alertas
+        st.write(f"**Estado del Tanque (Queda el {porcentaje_restante}%)**")
+        st.progress(porcentaje_restante) # Ahora la barra muestra lo que queda
+
+        if total_litros_necesarios > TANQUE_TOTAL:
+            st.error(f"⚠️ ¡ALERTA! Te faltan {abs(litros_restantes)} L. ¡Lleva bidones!")
         else:
-            st.success(f"✅ Te sobran {litros_restantes} litros ({porcentaje_restante}% del tanque).")
-        
-        # Barra de progreso mejorada
-        st.write(f"**Uso del tanque: {porcentaje_usado}%**")
-        st.progress(porcentaje_usado)
+            st.success(f"✅ Misión viable. Te sobran {litros_restantes} L en el tanque.")
 
-
+# Esto es para que no falle al importar
+if __name__ == "__main__":
+    run_uyunitec_sim()
    
