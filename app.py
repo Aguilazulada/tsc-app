@@ -1,5 +1,4 @@
 import streamlit as st
-
 def run_uyunitec_sim():
     # --- 1. PARÁMETROS CALIBRADOS (Realidad Altiplano) ---
     TANQUE_MAX = 70 
